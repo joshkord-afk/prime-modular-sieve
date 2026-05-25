@@ -227,7 +227,7 @@
             <h2>Motor de Densidad Constante</h2>
             <div class="controls">
                 <label>Cantidad de primos consecutivos a generar:</label>
-                <input type="number" id="cantidad" value="100" min="1">
+                <input type="number" id="cantidad" value="50000" min="1">
                 <div class="buttons">
                     <button class="btn-calc" onclick="generarPrimos()">Calcular</button>
                     <button class="btn-copy" onclick="copiarResultado()">Copiar</button>
@@ -477,7 +477,7 @@
 
         function limpiar() {
             document.getElementById("resultado").innerText = "Esperando cálculo...";
-            document.getElementById("cantidad").value = 100;
+            document.getElementById("cantidad").value = 50000;
         }
     </script>
 </body>
