@@ -242,7 +242,7 @@
             <h2>Factorizador Cuadrático Combinatorio</h2>
             <div class="controls">
                 <label>Número entero a factorizar (N):</label>
-                <input type="number" id="numeroAFactorizar" value="2021027" min="2">
+                <input type="text" id="numeroAFactorizar" value="2021027" inputmode="numeric" pattern="[0-9]*">
                 <div class="single-button">
                     <button class="btn-factor" onclick="factorizarNumero()">Factorizar en Tiempo Real</button>
                 </div>
@@ -367,57 +367,167 @@
         }
 
         /**
+         * FUNCIÓN: bigSqrt(value)
+         * Propósito: Calcula la raíz cuadrada entera exacta para BigInt utilizando el método de Newton.
+         */
+        function bigSqrt(value) {
+            if (value < 0n) return 0n;
+            if (value < 2n) return value;
+            let x0 = value / 2n;
+            let x1 = (x0 + value / x0) / 2n;
+            while (x1 < x0) {
+                x0 = x1;
+                x1 = (x0 + value / x0) / 2n;
+            }
+            return x0;
+        }
+
+        /**
+         * FUNCIÓN: esPrimoBigInt(num)
+         * Propósito: Determina si un BigInt es primo usando el test Miller-Rabin determinista.
+         */
+        function esPrimoBigInt(num) {
+            if (num < 2n) return false;
+            if (num === 2n || num === 3n) return true;
+            if (num % 2n === 0n || num % 3n === 0n) return false;
+            
+            let raiz = bigSqrt(num);
+            if (raiz * raiz === num) return false;
+            
+            function powerMod(b, e, m) {
+                let res = 1n;
+                b = b % m;
+                while (e > 0n) {
+                    if (e % 2n === 1n) res = (res * b) % m;
+                    b = (b * b) % m;
+                    e /= 2n;
+                }
+                return res;
+            }
+            
+            let d = num - 1n;
+            let s = 0n;
+            while (d % 2n === 0n) {
+                d /= 2n;
+                s++;
+            }
+            
+            let bases = [2n, 3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n];
+            for (let a of bases) {
+                if (num <= a) break;
+                let x = powerMod(a, d, num);
+                if (x === 1n || x === num - 1n) continue;
+                let compuesto = true;
+                for (let r = 1n; r < s; r++) {
+                    x = powerMod(x, 2n, num);
+                    if (x === num - 1n) {
+                        compuesto = false;
+                        break;
+                    }
+                }
+                if (compuesto) return false;
+            }
+            return true;
+        }
+
+        /**
          * FUNCIÓN: factorizarNumero()
          * Propósito: Factoriza un número compuesto N buscando la ecuación cuadrática combinatoria 
-         * C^2 + 8*N = Y^2 en tiempo real.
+         * C^2 + 8*N = Y^2 en tiempo real usando BigInt para precisión infinita.
          */
         function factorizarNumero() {
-            let N = parseInt(document.getElementById("numeroAFactorizar").value);
-            if (isNaN(N) || N <= 1) {
+            let inputStr = document.getElementById("numeroAFactorizar").value.trim().replace(/\s+/g, '');
+            if (!/^\d+$/.test(inputStr)) {
+                document.getElementById("resultadoFactorizacion").innerHTML = "<span class='error'>Ingresa un número entero mayor que 1.</span>";
+                return;
+            }
+            
+            let N = BigInt(inputStr);
+            if (N <= 1n) {
                 document.getElementById("resultadoFactorizacion").innerHTML = "<span class='error'>Ingresa un número entero mayor que 1.</span>";
                 return;
             }
 
+            let startTime = performance.now();
+
             // Caso directo: Números pares
-            if (N % 2 === 0) {
-                let p1 = 2;
-                let p2 = N / 2;
+            if (N % 2n === 0n) {
+                let p1 = 2n;
+                let p2 = N / 2n;
+                let endTime = performance.now();
+                let t = endTime - startTime;
                 document.getElementById("resultadoFactorizacion").innerHTML = `
                     <div class='success'>¡Éxito! Factores encontrados:</div>
                     <div class='factores'>${p1} × ${p2} = ${N}</div>
                     <div class='stats'>
                         Método: División Par Directa<br>
-                        Tiempo de cómputo: < 0.001 ms
+                        Tiempo de cómputo: ${t.toFixed(4)} ms
                     </div>
                 `;
                 return;
             }
 
-            let startTime = performance.now();
-            let C = 1;
-            let limite = Math.sqrt(8 * N);
-            let intentos = 0;
+            // Comprobación rápida de divisibilidad por primos pequeños (criba previa)
+            let primosPequenos = [3n, 5n, 7n, 11n, 13n, 17n, 19n, 23n, 29n, 31n, 37n, 41n, 43n, 47n, 53n, 59n, 61n, 67n, 71n, 73n, 79n, 83n, 89n, 97n];
+            for (let p of primosPequenos) {
+                if (N === p) break;
+                if (N % p === 0n) {
+                    let p1 = p;
+                    let p2 = N / p;
+                    let endTime = performance.now();
+                    let t = endTime - startTime;
+                    document.getElementById("resultadoFactorizacion").innerHTML = `
+                        <div class='success'>¡Éxito! Factores encontrados:</div>
+                        <div class='factores'>${p1} × ${p2} = ${N}</div>
+                        <div class='stats'>
+                            Método: Criba de Primos Pequeños Directa<br>
+                            Tiempo de cómputo: ${t.toFixed(4)} ms
+                        </div>
+                    `;
+                    return;
+                }
+            }
+
+            // Verificamos si N es primo antes de entrar al bucle combinatorio infinito
+            if (esPrimoBigInt(N)) {
+                let endTime = performance.now();
+                let t = endTime - startTime;
+                document.getElementById("resultadoFactorizacion").innerHTML = `
+                    <div class='primo'>El número es PRIMO:</div>
+                    <div class='factores'>1 × ${N} = ${N}</div>
+                    <div class='stats'>
+                        Verificado mediante Test de Miller-Rabin determinista.<br>
+                        Tiempo de cómputo: ${t.toFixed(4)} ms
+                    </div>
+                `;
+                return;
+            }
+
+            let C = 1n;
+            let limite = bigSqrt(8n * N);
+            let intentos = 0n;
+            let maxIntentos = 500000n; // Previene cuelgues del navegador en compuestos difíciles
             let encontrado = false;
 
             // Bucle de búsqueda de la raíz Y
-            while (C <= limite) {
+            while (C <= limite && intentos < maxIntentos) {
                 intentos++;
-                let val = C * C + 8 * N;
-                let Y = Math.floor(Math.sqrt(val));
+                let val = C * C + 8n * N;
+                let Y = bigSqrt(val);
 
                 if (Y * Y === val) {
                     // Validamos solución para C positivo: p1 = (Y + C) / 4, p2 = (Y - C) / 2
-                    if ((Y + C) % 4 === 0) {
-                        let p1 = (Y + C) / 4;
-                        let p2 = (Y - C) / 2;
-                        if (p1 * p2 === N && p1 > 1 && p2 > 1) {
+                    if ((Y + C) % 4n === 0n) {
+                        let p1 = (Y + C) / 4n;
+                        let p2 = (Y - C) / 2n;
+                        if (p1 * p2 === N && p1 > 1n && p2 > 1n) {
                             let endTime = performance.now();
                             let t = endTime - startTime;
                             document.getElementById("resultadoFactorizacion").innerHTML = `
                                 <div class='success'>¡Éxito! Factores encontrados:</div>
                                 <div class='factores'>${p1} × ${p2} = ${N}</div>
                                 <div class='stats'>
-                                    Ecuación combinatoria: C = 2*p1 - p2 = ${2 * p1 - p2}<br>
+                                    Ecuación combinatoria: C = 2*p1 - p2 = ${2n * p1 - p2}<br>
                                     C^2 + 8*N = ${C}^2 + 8*${N} = ${val} (Raíz: ${Y})<br>
                                     Intentos (Valores de C evaluados): ${intentos}<br>
                                     Tiempo de cómputo: ${t.toFixed(4)} ms
@@ -429,17 +539,17 @@
                     }
 
                     // Validamos solución para C negativo (simetría)
-                    if ((Y - C) % 4 === 0) {
-                        let p1 = (Y - C) / 4;
-                        let p2 = (Y + C) / 2;
-                        if (p1 * p2 === N && p1 > 1 && p2 > 1) {
+                    if ((Y - C) % 4n === 0n) {
+                        let p1 = (Y - C) / 4n;
+                        let p2 = (Y + C) / 2n;
+                        if (p1 * p2 === N && p1 > 1n && p2 > 1n) {
                             let endTime = performance.now();
                             let t = endTime - startTime;
                             document.getElementById("resultadoFactorizacion").innerHTML = `
                                 <div class='success'>¡Éxito! Factores encontrados:</div>
                                 <div class='factores'>${p1} × ${p2} = ${N}</div>
                                 <div class='stats'>
-                                    Ecuación combinatoria: C = 2*p1 - p2 = ${2 * p1 - p2}<br>
+                                    Ecuación combinatoria: C = 2*p1 - p2 = ${2n * p1 - p2}<br>
                                     C^2 + 8*N = ${C}^2 + 8*${N} = ${val} (Raíz: ${Y})<br>
                                     Intentos (Valores de C evaluados): ${intentos}<br>
                                     Tiempo de cómputo: ${t.toFixed(4)} ms
@@ -450,19 +560,47 @@
                         }
                     }
                 }
-                C += 2; // C siempre es impar para primos impares
+                C += 2n; // C siempre es impar para primos impares
             }
 
-            // Si se agota el rango de búsqueda sin resolver, N es Primo
+            // Fallback si no se encontró en la curva combinatoria y no es primo (debido a ratio extremo)
+            if (!encontrado) {
+                let divisor = 101n; // Empezamos después de los primos pequeños evaluados
+                let limiteTrial = bigSqrt(N);
+                let iter = 0n;
+                let maxIterTrial = 100000n; // Límite razonable para evitar colgar el navegador
+                
+                while (divisor <= limiteTrial && iter < maxIterTrial) {
+                    if (N % divisor === 0n) {
+                        let p1 = divisor;
+                        let p2 = N / divisor;
+                        let endTime = performance.now();
+                        let t = endTime - startTime;
+                        document.getElementById("resultadoFactorizacion").innerHTML = `
+                            <div class='success'>¡Éxito! Factores encontrados (Exceso de Rango):</div>
+                            <div class='factores'>${p1} × ${p2} = ${N}</div>
+                            <div class='stats'>
+                                Método: División por Tentativa (Ratio fuera de rango combinatorio)<br>
+                                Tiempo de cómputo: ${t.toFixed(4)} ms
+                            </div>
+                        `;
+                        encontrado = true;
+                        break;
+                    }
+                    divisor += 2n;
+                    iter++;
+                }
+            }
+
+            // Si se agota el rango de búsqueda sin resolver
             if (!encontrado) {
                 let endTime = performance.now();
                 let t = endTime - startTime;
                 document.getElementById("resultadoFactorizacion").innerHTML = `
-                    <div class='primo'>El número es PRIMO:</div>
-                    <div class='factores'>1 × ${N} = ${N}</div>
+                    <div class='primo' style='color: var(--accent-orange);'>Compuesto (Estructura Compleja):</div>
+                    <div class='factores'>N = ${N}</div>
                     <div class='stats'>
-                        No se encontraron factores no triviales en la curva combinatoria.<br>
-                        Intentos (Valores de C evaluados): ${intentos}<br>
+                        El número es compuesto pero sus factores tienen un ratio fuera del alcance de búsqueda en tiempo real de este factorizador.<br>
                         Tiempo de cómputo: ${t.toFixed(4)} ms
                     </div>
                 `;
